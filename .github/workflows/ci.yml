@@ -51,7 +51,7 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Deploy
-        run: railway up --service Agent --detach
+        run: railway up --service 5f09ee0a-739f-4b43-b8f7-4555335bb8b0 --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
