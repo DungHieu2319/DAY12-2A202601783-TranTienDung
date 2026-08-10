@@ -123,8 +123,44 @@ File đã sửa:
 
 ## Checkpoint 5 — Deploy thật lên cloud
 
-**Trạng thái: ⬜ Chưa làm** — `DEPLOYMENT.md` chưa điền thông tin cá nhân /
-platform, chưa có deployment public.
+**Trạng thái: ✅ Hoàn thành — 9/9 test pass (`pytest tests/test_cp5.py -v`),
+bao gồm cả test cộng điểm gọi `/ask` bằng key thật. Còn thiếu 2 ảnh chụp
+màn hình (`screenshots/dashboard.png`, `screenshots/health.png`) — cần tự
+chụp và thêm vào.**
+
+- Platform: **Railway**. Public URL:
+  `https://day12-2a202601783-trantiendung-production.up.railway.app`.
+- Đã push code lên GitHub (`origin`, repo đổi tên thành
+  `DAY12-2A202601783-TranTienDung`), Railway build trực tiếp từ đó bằng
+  `railway.toml` (builder = dockerfile) + `Dockerfile` (CP2).
+- Thêm service **Redis** (Railway managed database) trong cùng project,
+  service `agent` tham chiếu `REDIS_URL` bằng cú pháp
+  `${{Redis.REDIS_URL}}` (Railway tự resolve sang connection string thật
+  lúc chạy).
+- **Bug gặp phải & cách sửa** (đúng tinh thần câu 10 exercises.md):
+  Railway thực thi `startCommand` trong `railway.toml`
+  (`uvicorn ... --port $PORT`) **không qua shell**, nên `$PORT` không được
+  expand mà bị truyền nguyên văn chuỗi `"$PORT"` vào uvicorn → app crash
+  ngay lúc khởi động → healthcheck timeout → deploy fail. Thông báo lỗi
+  đọc được trong **Deploy Logs**: `Error: Invalid value for '--port':
+  '$PORT' is not a valid integer.` Cách tìm ra: đọc Deploy Logs của bản
+  deploy failed trên dashboard Railway. Cách sửa: bọc lệnh trong
+  `sh -c "..."` để ép shell expand biến trước khi exec:
+  `startCommand = "sh -c \"uvicorn app.main:app --host 0.0.0.0 --port $PORT\""`.
+- Lỗi phụ gặp thêm lúc set biến `REDIS_URL` trên dashboard: chọn nhầm
+  property khi dùng "Add Reference" (`RAILWAY_ENVIRONMENT` thay vì
+  `REDIS_URL`, rồi gõ tay nhầm giá trị local `redis://localhost:6379/0`)
+  → `/ready` lần lượt trả `503` rồi `500` (`ValueError: Redis URL must
+  specify one of the following schemes`). Sửa bằng cách set đúng
+  `REDIS_URL="${{Redis.REDIS_URL}}"`.
+- Kết quả test thật (xem đầy đủ trong `DEPLOYMENT.md`): `/health` → 200,
+  `/ready` → 200 `{"redis": true}`, `/ask` không key → 401, có key → 200
+  kèm câu trả lời, rate limit 10 request/phút hoạt động đúng (9 request
+  đầu của vòng lặp 15 lần trả 200, cộng 1 request test trước đó = đúng 10,
+  phần còn lại trả 429).
+- `.env` local: thêm `DEPLOY_API_KEY` = key production thật, để bài test
+  cộng điểm `test_ask_hoat_dong_voi_key_that` trong `test_cp5.py` chạy
+  được khi test ở máy.
 
 ## Bonus — CI/CD với GitHub Actions
 
