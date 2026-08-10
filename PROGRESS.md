@@ -164,6 +164,44 @@ chụp và thêm vào.**
 
 ## Bonus — CI/CD với GitHub Actions
 
+**Trạng thái: ✅ Hoàn thành — 13/13 test pass (`pytest tests/test_bonus_cicd.py -v`),
+kể cả test tải badge thật từ GitHub và xác nhận "passing".**
+
+- Thêm `.github/workflows/ci.yml` với 3 job:
+  - `test`: checkout → setup Python 3.11 → `pip install -r requirements.txt`
+    → `pytest --ignore=tests/test_cp5.py --ignore=tests/test_bonus_cicd.py`
+    (loại 2 file test cần bản deploy sống / tự tham chiếu CI). Biến môi
+    trường giả `AGENT_API_KEY=ci-dummy`, `REDIS_URL=fake://` truyền qua `env:`.
+  - `build`: `docker build` ngay trên runner GitHub (máy sạch, bắt lỗi kiểu
+    "chỉ chạy trên máy tôi").
+  - `deploy`: `needs: [test, build]`, `if: github.ref == 'refs/heads/main' &&
+    github.event_name == 'push'` — chỉ deploy khi test/build xanh và trên
+    nhánh main. Dùng Railway CLI (`railway up`), token qua
+    `${{ secrets.RAILWAY_TOKEN }}`, kèm smoke test `curl -fsS $PUBLIC_URL/health`
+    sau khi deploy. Action ghim phiên bản (`@v4`, `@v5`), không dùng `@main`.
+  - Thêm badge CI vào đầu `README.md`.
+- **3 bug gặp phải lúc chạy CI thật & cách sửa** (dữ liệu tốt cho câu 10
+  exercises.md):
+  1. `git push` bị GitHub từ chối: *"refusing to allow an OAuth App to
+     create or update workflow `.github/workflows/ci.yml` without `workflow`
+     scope"* — credential cache (Git Credential Manager) thiếu quyền
+     `workflow`. Sửa bằng `git credential-manager github logout <account>`
+     rồi push lại để đăng nhập lại với đủ scope.
+  2. Job `deploy` fail với `Service not found` khi chạy
+     `railway up --service agent`: dùng **Account Token** (scope toàn bộ
+     workspace) thay vì **Project Token** (scope đúng 1 project/environment)
+     — CLI không tự biết deploy vào project nào. Đổi tên service viết hoa
+     (`Agent`) cũng không giải quyết được, vì CLI không resolve theo tên
+     hiển thị dưới token dạng này. Sửa triệt để bằng cách dùng **Service ID**
+     (UUID, lấy từ URL dashboard Railway) thay cho tên:
+     `railway up --service <service-id> --detach`.
+  3. Cần tạo Project Token đúng chỗ: **Project Settings → Tokens** (không
+     phải **Account Settings → Tokens**, cái đó tạo Account Token).
+- Bổ sung `RAILWAY_TOKEN` (secret) và `PUBLIC_URL` (variable) trong GitHub
+  repo → **Settings → Secrets and variables → Actions**.
+
+## Bonus — CI/CD với GitHub Actions
+
 **Trạng thái: ⬜ Chưa làm** — chưa có thư mục `.github/workflows/`.
 
 ## Baseline test toàn repo
